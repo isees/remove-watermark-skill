@@ -135,6 +135,20 @@ This repository is already the standalone public skill project. For local use,
 you can install directly from `skill/airemove-watermark/` or zip that folder
 for manual distribution.
 
+Build the distributable archives with:
+
+```bash
+pnpm build
+```
+
+This creates:
+
+- `dist/latest.zip`
+- `dist/remove-watermark-skill-0.1.5.zip`
+
+Both archives extract to `airemove-watermark/`, which matches the current
+install directory and marketplace slug.
+
 ## ClawHub Readiness
 
 Recommended publish flow:
