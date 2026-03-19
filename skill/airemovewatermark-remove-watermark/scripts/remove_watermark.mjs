@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+
+const DEFAULT_BASE_URL = 'https://airemovewatermark.net';
 
 function parseArgs(argv) {
   const args = { _: [] };
@@ -27,12 +28,24 @@ function parseArgs(argv) {
   return args;
 }
 
+function printHelp() {
+  console.log(`Usage:
+  node scripts/remove_watermark.mjs credits [--api-key <key>] [--base-url <url>]
+  node scripts/remove_watermark.mjs remove --file <path> [--wait true] [--download-to <path>] [--api-key <key>] [--base-url <url>]
+  node scripts/remove_watermark.mjs remove --image-url <url> [--wait true] [--download-to <path>] [--api-key <key>] [--base-url <url>]
+  node scripts/remove_watermark.mjs task --task-id <id> [--download-to <path>] [--api-key <key>] [--base-url <url>]
+
+Defaults:
+  base URL defaults to ${DEFAULT_BASE_URL}
+`);
+}
+
 function getConfig(args) {
   const baseUrl = String(
     args['base-url'] ||
       process.env.API_BASE_URL ||
       process.env.REMOVE_WATERMARK_BASE_URL ||
-      ''
+      DEFAULT_BASE_URL
   ).trim();
   const apiKey = String(
     args['api-key'] ||
@@ -40,12 +53,6 @@ function getConfig(args) {
       process.env.REMOVE_WATERMARK_API_KEY ||
       ''
   ).trim();
-
-  if (!baseUrl) {
-    throw new Error(
-      'Missing base URL. Set API_BASE_URL, REMOVE_WATERMARK_BASE_URL, or --base-url'
-    );
-  }
 
   if (!apiKey) {
     throw new Error(
@@ -102,6 +109,46 @@ async function requestJson(url, init) {
   return json;
 }
 
+function getTaskOutputUrl(json) {
+  return (
+    json?.data?.task?.outputUrl ||
+    json?.data?.outputUrl ||
+    json?.outputUrl ||
+    ''
+  );
+}
+
+function getTaskStatus(json) {
+  return String(json?.data?.task?.status || json?.data?.status || '').trim();
+}
+
+async function maybeDownloadOutput(json, downloadTo) {
+  const targetPath = String(downloadTo || '').trim();
+  if (!targetPath) {
+    return;
+  }
+
+  const status = getTaskStatus(json);
+  const outputUrl = String(getTaskOutputUrl(json) || '').trim();
+
+  if (!outputUrl) {
+    throw new Error(
+      `No outputUrl found in response${status ? ` (status: ${status})` : ''}`
+    );
+  }
+
+  const response = await fetch(outputUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to download output: ${response.status}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const absolutePath = path.resolve(targetPath);
+  await mkdir(path.dirname(absolutePath), { recursive: true });
+  await writeFile(absolutePath, new Uint8Array(arrayBuffer));
+  console.error(`Downloaded output to ${absolutePath}`);
+}
+
 async function runCredits(config) {
   const json = await requestJson(`${config.baseUrl}/api/v1/credits`, {
     headers: getHeaders(config.apiKey),
@@ -125,13 +172,16 @@ async function runTask(config, args) {
     }
   );
 
+  await maybeDownloadOutput(json, args['download-to']);
   console.log(JSON.stringify(json, null, 2));
 }
 
 async function runRemove(config, args) {
   const filePath = String(args.file || '').trim();
   const imageUrl = String(args['image-url'] || '').trim();
-  const wait = String(args.wait || 'true').trim().toLowerCase();
+  const wait = String(args.wait || 'true')
+    .trim()
+    .toLowerCase();
 
   if (!filePath && !imageUrl) {
     throw new Error('Provide --file or --image-url');
@@ -141,7 +191,7 @@ async function runRemove(config, args) {
     throw new Error('Provide only one of --file or --image-url');
   }
 
-  let response;
+  let json;
   if (filePath) {
     const absolutePath = path.resolve(filePath);
     const bytes = await readFile(absolutePath);
@@ -154,13 +204,13 @@ async function runRemove(config, args) {
     );
     formData.set('wait', wait);
 
-    response = await requestJson(`${config.baseUrl}/api/v1/watermark/remove`, {
+    json = await requestJson(`${config.baseUrl}/api/v1/watermark/remove`, {
       body: formData,
       headers: getHeaders(config.apiKey),
       method: 'POST',
     });
   } else {
-    response = await requestJson(`${config.baseUrl}/api/v1/watermark/remove`, {
+    json = await requestJson(`${config.baseUrl}/api/v1/watermark/remove`, {
       body: JSON.stringify({
         imageUrl,
         wait,
@@ -172,12 +222,25 @@ async function runRemove(config, args) {
     });
   }
 
-  console.log(JSON.stringify(response, null, 2));
+  await maybeDownloadOutput(json, args['download-to']);
+  console.log(JSON.stringify(json, null, 2));
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+
+  if (args.help || args.h) {
+    printHelp();
+    return;
+  }
+
   const command = args._[0] || 'remove';
+
+  if (command === 'help') {
+    printHelp();
+    return;
+  }
+
   const config = getConfig(args);
 
   switch (command) {

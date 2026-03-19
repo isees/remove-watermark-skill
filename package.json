@@ -1,7 +1,7 @@
 {
   "name": "@airemovewatermark/remove-watermark",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "private": true,
   "description": "Official Airemovewatermark skill package for OpenClaw and ClawHub distribution.",
-  "license": "MIT"
+  "license": "MIT-0"
 }
