@@ -3,21 +3,6 @@
 Official skill project for calling the Airemovewatermark API from claw-style
 agent runtimes.
 
-This repository subtree is designed to be:
-
-- maintained inside the main product repository for easier local development
-- packaged directly for website downloads
-- synced later to a standalone public GitHub repository
-- published to ClawHub when ready
-
-Naming strategy:
-
-- package name stays capability-focused: `@airemovewatermark/remove-watermark`
-- local project directory stays platform-neutral:
-  `remove-watermark-skill`
-- install directory and ClawHub slug stay globally unique:
-  `airemovewatermark-remove-watermark`
-
 ## What It Does
 
 - removes watermarks through `POST /api/v1/watermark/remove`
@@ -29,7 +14,7 @@ Naming strategy:
 
 The skill folder that users install should be named:
 
-- `airemovewatermark-remove-watermark`
+- `airemove-watermark`
 
 You can install it in either:
 
@@ -38,15 +23,14 @@ You can install it in either:
 
 Quick install for local testing:
 
-1. Run `pnpm skill:build` in this repository.
-2. Copy `skills/airemovewatermark-remove-watermark` into the OpenClaw skills directory.
+1. Copy `skill/airemove-watermark` into the OpenClaw skills directory.
 3. Set `API_KEY` in the runtime environment.
 4. Ask the agent to remove a watermark from a local file or image URL.
 
 For website distribution, the packaged archive should extract to:
 
 ```text
-airemovewatermark-remove-watermark/
+airemove-watermark/
   manifest.yaml
   SKILL.md
   scripts/
@@ -125,13 +109,13 @@ ClawHub-facing runtime metadata is declared in `SKILL.md` frontmatter:
 - `name`
 - `description`
 - `version`
-- `metadata.openclaw.requires`
-- `metadata.openclaw.primaryEnv`
+- `metadata.clawdbot.requires`
+- `metadata.clawdbot.primaryEnv`
 
 Supplemental packaging metadata remains in `manifest.yaml`:
 
-- slug: `airemovewatermark-remove-watermark`
-- display name: `Airemovewatermark Remove Watermark`
+- slug: `airemove-watermark`
+- display name: `AI Remove Watermark`
 - license: `MIT-0`
 
 ## Local Layout
@@ -139,59 +123,24 @@ Supplemental packaging metadata remains in `manifest.yaml`:
 ```text
 remove-watermark-skill/
   skill/
-    airemovewatermark-remove-watermark/
+    airemove-watermark/
       SKILL.md
       scripts/
         remove_watermark.mjs
 ```
 
-## Build
+## Package
 
-From the root repository:
-
-```bash
-pnpm skill:build
-```
-
-This command will:
-
-- refresh `skills/airemovewatermark-remove-watermark`
-- create `public/skills/airemovewatermark-remove-watermark/latest.zip`
-- create a versioned package under `remove-watermark-skill/dist/`
-
-## Open Source Sync
-
-This project is designed so the whole `remove-watermark-skill/` directory can
-be copied or synced into a standalone public GitHub repository without
-including the private product code from the main app repository.
-
-Root-level files intended for the public repository:
-
-- `README.md`
-- `LICENSE`
-- `CHANGELOG.md`
-- `package.json`
-- `skill/airemovewatermark-remove-watermark/**`
+This repository is already the standalone public skill project. For local use,
+you can install directly from `skill/airemove-watermark/` or zip that folder
+for manual distribution.
 
 ## ClawHub Readiness
 
-Suggested future ClawHub slug:
-
-- `airemovewatermark-remove-watermark`
-
-Suggested future public repository name:
-
-- `remove-watermark-skill`
-
 Recommended publish flow:
 
-1. Sync this subtree to a standalone public repository
+1. Review the `SKILL.md` frontmatter and `manifest.yaml`
 2. Tag a version
 3. Publish the skill to ClawHub from the skill root that contains `SKILL.md`
    and supporting text files
 4. Accept ClawHub's MIT-0 publish terms in the publish UI when prompted
-
-## Publish Later
-
-When you are ready to publish independently, this subtree can be copied to a
-standalone public repository with very little cleanup.

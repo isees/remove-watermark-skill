@@ -1,9 +1,8 @@
----
-name: airemovewatermark-remove-watermark
-description: Remove watermarks from images through the Airemovewatermark API from OpenClaw-style runtimes. Use when an agent needs to remove a watermark from a local image file or remote image URL, poll async task status, optionally download the finished image, or check credits with an API key.
-version: 0.1.4
+name: airemove-watermark
+description: Remove watermarks from images through the Airemovewatermark API from claw-style runtimes. Use when an agent needs to remove a watermark from a local image file or remote image URL, poll async task status, optionally download the finished image, or check credits with an API key.
+version: 0.1.5
 metadata:
-  openclaw:
+  clawdbot:
     requires:
       env:
         - API_KEY

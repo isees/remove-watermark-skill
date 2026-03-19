@@ -3,6 +3,13 @@
 This changelog tracks the standalone skill project intended for website
 distribution, public GitHub sync, and future ClawHub publication.
 
+## 0.1.5
+
+- Shortened the published skill slug to `airemove-watermark`
+- Renamed the display name to `AI Remove Watermark`
+- Switched runtime metadata from `metadata.openclaw` to the preferred `metadata.clawdbot`
+- Removed old subtree-sync wording so the repository reads as a standalone open-source skill project
+
 ## 0.1.0
 
 - Initial standalone remove-watermark skill project for Airemovewatermark
@@ -31,6 +38,6 @@ distribution, public GitHub sync, and future ClawHub publication.
 
 ## 0.1.4
 
-- Added explicit `metadata.openclaw` runtime declarations to `SKILL.md` frontmatter
+- Added explicit runtime declarations to `SKILL.md` frontmatter
 - Clarified that ClawHub reads runtime metadata from `SKILL.md` and treats `manifest.yaml` as supplemental packaging metadata
 - Documented that `remove --wait true` only does short polling before the caller should continue with task polling
