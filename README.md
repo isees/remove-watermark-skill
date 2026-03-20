@@ -156,6 +156,48 @@ This creates:
 The archive extracts to `airemove-watermark/`, which matches the current
 install directory and marketplace slug.
 
+## Cloudflare R2 Upload
+
+You can upload the versioned zip directly to Cloudflare R2 from this repo.
+
+1. Copy `.env.example` to `.env.dev`
+2. Fill in your R2 credentials and bucket settings
+3. Build the archive with `pnpm build`
+4. Upload it with `pnpm upload:r2`
+
+Required env values:
+
+- `CLOUDFLARE_R2_ACCOUNT_ID`
+- `CLOUDFLARE_R2_ACCESS_KEY_ID`
+- `CLOUDFLARE_R2_SECRET_ACCESS_KEY`
+- `CLOUDFLARE_R2_BUCKET`
+
+Optional env values:
+
+- `CLOUDFLARE_R2_KEY_PREFIX`
+  defaults to `skills`
+- `CLOUDFLARE_R2_PUBLIC_BASE_URL`
+  for example `https://assets.airemovewatermark.net`
+
+Default upload result for version `0.1.6`:
+
+- object key: `skills/remove-watermark-skill-0.1.6.zip`
+
+Useful commands:
+
+```bash
+pnpm build
+pnpm upload:r2
+```
+
+You can also override the upload source or target key:
+
+```bash
+node scripts/upload-r2.mjs --file dist/remove-watermark-skill-0.1.6.zip
+node scripts/upload-r2.mjs --key skills/remove-watermark-skill-0.1.6.zip
+node scripts/upload-r2.mjs --dry-run true
+```
+
 ## ClawHub Readiness
 
 Recommended publish flow:

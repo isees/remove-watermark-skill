@@ -5,6 +5,7 @@
   "description": "Official AI Remove Watermark skill package for OpenClaw and ClawHub distribution.",
   "license": "MIT-0",
   "scripts": {
-    "build": "node scripts/build-skill.mjs"
+    "build": "node scripts/build-skill.mjs",
+    "upload:r2": "node scripts/upload-r2.mjs"
   }
 }
