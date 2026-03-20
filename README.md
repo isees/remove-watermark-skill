@@ -143,10 +143,9 @@ pnpm build
 
 This creates:
 
-- `dist/latest.zip`
 - `dist/remove-watermark-skill-0.1.5.zip`
 
-Both archives extract to `airemove-watermark/`, which matches the current
+The archive extracts to `airemove-watermark/`, which matches the current
 install directory and marketplace slug.
 
 ## ClawHub Readiness

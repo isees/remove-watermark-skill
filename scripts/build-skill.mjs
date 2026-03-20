@@ -14,7 +14,6 @@ const skillSourceDir = join(rootDir, 'skill', skillSlug);
 const distDir = join(rootDir, 'dist');
 const stageRoot = join(distDir, '__stage__');
 const stagedSkillDir = join(stageRoot, skillSlug);
-const latestZip = join(distDir, 'latest.zip');
 const versionedZip = join(distDir, `remove-watermark-skill-${version}.zip`);
 
 if (!existsSync(skillSourceDir)) {
@@ -25,16 +24,11 @@ rmSync(stageRoot, { recursive: true, force: true });
 mkdirSync(stageRoot, { recursive: true });
 cpSync(skillSourceDir, stagedSkillDir, { recursive: true });
 
-rmSync(latestZip, { force: true });
-rmSync(versionedZip, { force: true });
-
 execFileSync(
   'tar',
-  ['-a', '-c', '-f', latestZip, skillSlug],
+  ['-a', '-c', '-f', versionedZip, skillSlug],
   { cwd: stageRoot, stdio: 'inherit' },
 );
-cpSync(latestZip, versionedZip);
 rmSync(stageRoot, { recursive: true, force: true });
 
-console.log(`Built ${latestZip}`);
 console.log(`Built ${versionedZip}`);
