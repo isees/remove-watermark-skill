@@ -75,7 +75,7 @@ Only set `API_BASE_URL` when you need to point the skill at another deployment.
 Recommended first call:
 
 ```bash
-node scripts/remove_watermark.mjs remove --file /absolute/path/to/image.png --wait true --download-to /absolute/path/to/output.png
+node scripts/remove_watermark.mjs remove --file /absolute/path/to/image.png
 ```
 
 Alternative remote image call:
@@ -87,8 +87,16 @@ node scripts/remove_watermark.mjs remove --image-url https://example.com/image.p
 Later polling call:
 
 ```bash
-node scripts/remove_watermark.mjs task --task-id task_xxx --download-to /absolute/path/to/output.png
+node scripts/remove_watermark.mjs task --task-id task_xxx
 ```
+
+Defaults now favor chat-friendly delivery:
+
+- `remove` waits by default
+- completed jobs auto-download to `.openclaw-artifacts/remove-watermark/`
+- the script prints top-level `status`, `result_file`, and `result_summary`
+  fields so runtimes can send the cleaned image back to the user more easily
+- failures return structured human-readable errors instead of only raw API text
 
 The bundled script also supports `--help`.
 
@@ -143,7 +151,7 @@ pnpm build
 
 This creates:
 
-- `dist/remove-watermark-skill-0.1.5.zip`
+- `dist/remove-watermark-skill-0.1.6.zip`
 
 The archive extracts to `airemove-watermark/`, which matches the current
 install directory and marketplace slug.

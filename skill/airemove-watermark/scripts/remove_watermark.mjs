@@ -3,6 +3,11 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const DEFAULT_BASE_URL = 'https://airemovewatermark.net';
+const DEFAULT_OUTPUT_DIR = path.resolve(
+  process.cwd(),
+  '.openclaw-artifacts',
+  'remove-watermark',
+);
 
 function parseArgs(argv) {
   const args = { _: [] };
@@ -31,12 +36,14 @@ function parseArgs(argv) {
 function printHelp() {
   console.log(`Usage:
   node scripts/remove_watermark.mjs credits [--api-key <key>] [--base-url <url>]
-  node scripts/remove_watermark.mjs remove --file <path> [--wait true] [--download-to <path>] [--api-key <key>] [--base-url <url>]
-  node scripts/remove_watermark.mjs remove --image-url <url> [--wait true] [--download-to <path>] [--api-key <key>] [--base-url <url>]
-  node scripts/remove_watermark.mjs task --task-id <id> [--download-to <path>] [--api-key <key>] [--base-url <url>]
+  node scripts/remove_watermark.mjs remove --file <path> [--wait true] [--download-to <path>] [--output-dir <path>] [--api-key <key>] [--base-url <url>]
+  node scripts/remove_watermark.mjs remove --image-url <url> [--wait true] [--download-to <path>] [--output-dir <path>] [--api-key <key>] [--base-url <url>]
+  node scripts/remove_watermark.mjs task --task-id <id> [--download-to <path>] [--output-dir <path>] [--api-key <key>] [--base-url <url>]
 
 Defaults:
   base URL defaults to ${DEFAULT_BASE_URL}
+  remove waits for completion by default
+  completed jobs auto-download to ${DEFAULT_OUTPUT_DIR}
 `);
 }
 
@@ -97,16 +104,57 @@ async function requestJson(url, init) {
   try {
     json = JSON.parse(text);
   } catch {
-    throw new Error(`Unexpected response (${response.status}): ${text}`);
+    throw new Error(`API returned an unreadable response (${response.status})`);
   }
 
   if (!response.ok || json?.code !== 0) {
     throw new Error(
-      json?.message || `Request failed with status ${response.status}`
+      humanizeApiError(
+        json?.message || `Request failed with status ${response.status}`,
+        response.status
+      )
     );
   }
 
   return json;
+}
+
+function humanizeApiError(message, status = 0) {
+  const normalized = String(message || '').trim();
+  const lower = normalized.toLowerCase();
+
+  if (
+    status === 401 ||
+    status === 403 ||
+    lower.includes('invalid api key') ||
+    lower.includes('invalid key') ||
+    lower.includes('unauthorized') ||
+    lower.includes('forbidden')
+  ) {
+    return 'API key is invalid or not authorized. Check API_KEY and try again.';
+  }
+
+  if (
+    lower.includes('insufficient') &&
+    (lower.includes('credit') || lower.includes('balance'))
+  ) {
+    return 'Insufficient credits. Add credits, then try the request again.';
+  }
+
+  if (
+    lower.includes('unsupported') ||
+    lower.includes('invalid image') ||
+    lower.includes('invalid file type') ||
+    lower.includes('file type')
+  ) {
+    return 'The image format is not supported. Use a JPG, PNG, or WebP image.';
+  }
+
+  if (status >= 500 || lower.includes('timeout') || lower.includes('timed out')) {
+    return 'The remove-watermark service is temporarily unavailable or timed out. Please try again.';
+  }
+
+  return normalized || 'The request failed. Please try again.';
 }
 
 function getTaskOutputUrl(json) {
@@ -122,14 +170,85 @@ function getTaskStatus(json) {
   return String(json?.data?.task?.status || json?.data?.status || '').trim();
 }
 
-async function maybeDownloadOutput(json, downloadTo) {
-  const targetPath = String(downloadTo || '').trim();
-  if (!targetPath) {
-    return;
+function getTaskId(json) {
+  return String(json?.data?.task?.id || json?.data?.id || json?.id || '').trim();
+}
+
+function isCompletedStatus(status) {
+  const normalized = String(status || '').trim().toLowerCase();
+  return ['completed', 'complete', 'succeeded', 'success', 'done'].includes(
+    normalized
+  );
+}
+
+function isFailedStatus(status) {
+  const normalized = String(status || '').trim().toLowerCase();
+  return ['failed', 'error', 'cancelled', 'canceled'].includes(normalized);
+}
+
+function isCompletedResponse(json) {
+  if (json?.data?.completed === true || json?.completed === true) {
+    return true;
   }
 
+  return isCompletedStatus(getTaskStatus(json));
+}
+
+function inferOutputExtension(outputUrl, fallbackName = '') {
+  const fromName = path.extname(String(fallbackName || '').trim());
+  if (fromName) {
+    return fromName.toLowerCase();
+  }
+
+  try {
+    const parsed = new URL(outputUrl);
+    const fromUrl = path.extname(parsed.pathname);
+    if (fromUrl) {
+      return fromUrl.toLowerCase();
+    }
+  } catch {
+    // ignore URL parsing errors
+  }
+
+  return '.png';
+}
+
+function sanitizeFileStem(value) {
+  const stem = String(value || '')
+    .trim()
+    .replace(/\.[^.]+$/, '')
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  return stem || 'watermark-result';
+}
+
+function getDefaultDownloadTarget({ json, sourceFilePath, outputDir }) {
+  const taskId = getTaskId(json);
+  const outputUrl = String(getTaskOutputUrl(json) || '').trim();
+  const fileStem = sanitizeFileStem(
+    sourceFilePath ? path.basename(sourceFilePath) : taskId || 'watermark-result'
+  );
+  const ext = inferOutputExtension(outputUrl, sourceFilePath);
+  return path.join(outputDir, `${fileStem}-cleaned${ext}`);
+}
+
+async function maybeDownloadOutput(json, downloadTo, options = {}) {
   const status = getTaskStatus(json);
   const outputUrl = String(getTaskOutputUrl(json) || '').trim();
+  const isCompleted = isCompletedResponse(json);
+
+  if (!outputUrl || !isCompleted) {
+    return null;
+  }
+
+  const targetPath = String(downloadTo || '').trim()
+    ? String(downloadTo || '').trim()
+    : getDefaultDownloadTarget({
+        json,
+        sourceFilePath: options.sourceFilePath,
+        outputDir: options.outputDir || DEFAULT_OUTPUT_DIR,
+      });
 
   if (!outputUrl) {
     throw new Error(
@@ -146,7 +265,61 @@ async function maybeDownloadOutput(json, downloadTo) {
   const absolutePath = path.resolve(targetPath);
   await mkdir(path.dirname(absolutePath), { recursive: true });
   await writeFile(absolutePath, new Uint8Array(arrayBuffer));
-  console.error(`Downloaded output to ${absolutePath}`);
+  return absolutePath;
+}
+
+function buildCreditsResult(json) {
+  const credits =
+    json?.data?.remainingCredits ??
+    json?.data?.credits ??
+    json?.data?.balance ??
+    null;
+
+  return {
+    status: 'succeeded',
+    command: 'credits',
+    credits_remaining: credits,
+    result_summary:
+      credits === null
+        ? 'Credits retrieved successfully.'
+        : `Credits retrieved successfully. Remaining credits: ${credits}.`,
+    raw: json,
+  };
+}
+
+function buildTaskResult(json, context = {}) {
+  const status = getTaskStatus(json) || 'unknown';
+  const taskId = getTaskId(json) || null;
+  const completed = isCompletedResponse(json);
+  const failed = isFailedStatus(status);
+  const outputUrl = String(getTaskOutputUrl(json) || '').trim() || null;
+  const resultFile = context.resultFile || null;
+
+  let resultSummary = 'Task status retrieved.';
+  if (completed && resultFile) {
+    resultSummary = `Watermark removed successfully. Result saved to ${resultFile}.`;
+  } else if (completed) {
+    resultSummary = 'Watermark removed successfully.';
+  } else if (failed) {
+    resultSummary = 'The watermark removal task failed.';
+  } else if (taskId) {
+    resultSummary = `Task is still ${status}. Poll again with task --task-id ${taskId}.`;
+  }
+
+  return {
+    status: failed ? 'failed' : completed ? 'succeeded' : 'processing',
+    command: context.command || 'task',
+    task_id: taskId,
+    completed,
+    result_file: resultFile,
+    output_url: outputUrl,
+    result_summary: resultSummary,
+    next_action:
+      !completed && !failed && taskId
+        ? `Run: node scripts/remove_watermark.mjs task --task-id ${taskId}`
+        : null,
+    raw: json,
+  };
 }
 
 async function runCredits(config) {
@@ -155,7 +328,7 @@ async function runCredits(config) {
     method: 'GET',
   });
 
-  console.log(JSON.stringify(json, null, 2));
+  console.log(JSON.stringify(buildCreditsResult(json), null, 2));
 }
 
 async function runTask(config, args) {
@@ -172,8 +345,19 @@ async function runTask(config, args) {
     }
   );
 
-  await maybeDownloadOutput(json, args['download-to']);
-  console.log(JSON.stringify(json, null, 2));
+  const resultFile = await maybeDownloadOutput(json, args['download-to'], {
+    outputDir: args['output-dir'],
+  });
+  console.log(
+    JSON.stringify(
+      buildTaskResult(json, {
+        command: 'task',
+        resultFile,
+      }),
+      null,
+      2
+    )
+  );
 }
 
 async function runRemove(config, args) {
@@ -222,8 +406,20 @@ async function runRemove(config, args) {
     });
   }
 
-  await maybeDownloadOutput(json, args['download-to']);
-  console.log(JSON.stringify(json, null, 2));
+  const resultFile = await maybeDownloadOutput(json, args['download-to'], {
+    sourceFilePath: filePath,
+    outputDir: args['output-dir'],
+  });
+  console.log(
+    JSON.stringify(
+      buildTaskResult(json, {
+        command: 'remove',
+        resultFile,
+      }),
+      null,
+      2
+    )
+  );
 }
 
 async function main() {
@@ -259,6 +455,16 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
+  const message = error instanceof Error ? error.message : String(error);
+  console.log(
+    JSON.stringify(
+      {
+        status: 'error',
+        result_summary: message,
+      },
+      null,
+      2
+    )
+  );
   process.exitCode = 1;
 });

@@ -3,6 +3,12 @@
 This changelog tracks the standalone skill project intended for website
 distribution, public GitHub sync, and future ClawHub publication.
 
+## 0.1.6
+
+- Optimized the CLI output for chat-style runtimes with top-level `status`, `result_file`, and `result_summary`
+- Defaulted completed jobs to auto-download into a stable local artifacts directory
+- Reworded common API failures into human-readable messages that are easier to relay back to users
+
 ## 0.1.5
 
 - Shortened the published skill slug to `airemove-watermark`
