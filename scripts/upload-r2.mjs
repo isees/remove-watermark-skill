@@ -14,11 +14,22 @@ const packageJson = JSON.parse(
 );
 
 const requiredEnvKeys = [
-  'CLOUDFLARE_R2_ACCOUNT_ID',
-  'CLOUDFLARE_R2_ACCESS_KEY_ID',
-  'CLOUDFLARE_R2_SECRET_ACCESS_KEY',
-  'CLOUDFLARE_R2_BUCKET',
+  'R2_ACCESS_KEY',
+  'R2_SECRET_KEY',
+  'R2_BUCKET',
+  'R2_ENDPOINT',
 ];
+
+function readEnv(...keys) {
+  for (const key of keys) {
+    const value = String(process.env[key] || '').trim();
+    if (value) {
+      return value;
+    }
+  }
+
+  return '';
+}
 
 function loadEnvFile(filePath) {
   if (!existsSync(filePath)) {
@@ -96,7 +107,8 @@ function getObjectKey(args, archivePath) {
     return explicitKey.replace(/^\/+/, '');
   }
 
-  const prefix = String(process.env.CLOUDFLARE_R2_KEY_PREFIX || 'skills').trim()
+  const prefix = readEnv('R2_UPLOAD_PATH', 'CLOUDFLARE_R2_KEY_PREFIX', 'UPLOAD_PATH')
+    .trim()
     .replace(/^\/+/, '')
     .replace(/\/+$/, '');
   const filename = path.basename(archivePath);
@@ -177,7 +189,11 @@ function buildAuthHeaders({ method, url, body, accessKeyId, secretAccessKey }) {
 }
 
 function getPublicUrl(objectKey) {
-  const baseUrl = String(process.env.CLOUDFLARE_R2_PUBLIC_BASE_URL || '').trim();
+  const baseUrl = readEnv(
+    'R2_DOMAIN',
+    'CLOUDFLARE_R2_PUBLIC_BASE_URL',
+    'PUBLIC_DOMAIN'
+  );
   if (!baseUrl) {
     return null;
   }
@@ -185,10 +201,32 @@ function getPublicUrl(objectKey) {
   return `${baseUrl.replace(/\/+$/, '')}/${objectKey.replace(/^\/+/, '')}`;
 }
 
+function getUploadBaseUrl() {
+  const endpoint = readEnv('R2_ENDPOINT', 'CLOUDFLARE_R2_ENDPOINT');
+  if (!endpoint) {
+    return '';
+  }
+
+  return endpoint.replace(/\/+$/, '');
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
 
-  const missingEnv = requiredEnvKeys.filter((key) => !process.env[key]);
+  const resolvedEnv = {
+    R2_ACCESS_KEY: readEnv(
+      'R2_ACCESS_KEY',
+      'CLOUDFLARE_R2_ACCESS_KEY_ID'
+    ),
+    R2_SECRET_KEY: readEnv(
+      'R2_SECRET_KEY',
+      'CLOUDFLARE_R2_SECRET_ACCESS_KEY'
+    ),
+    R2_BUCKET: readEnv('R2_BUCKET', 'CLOUDFLARE_R2_BUCKET'),
+    R2_ENDPOINT: getUploadBaseUrl(),
+  };
+
+  const missingEnv = requiredEnvKeys.filter((key) => !resolvedEnv[key]);
   if (missingEnv.length > 0) {
     throw new Error(
       `Missing required env vars: ${missingEnv.join(', ')}. Copy .env.example to .env.dev and fill them in.`,
@@ -203,7 +241,7 @@ async function main() {
   }
 
   const objectKey = getObjectKey(args, archivePath);
-  const uploadUrl = `https://${process.env.CLOUDFLARE_R2_BUCKET}.${process.env.CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${objectKey}`;
+  const uploadUrl = `${resolvedEnv.R2_ENDPOINT}/${resolvedEnv.R2_BUCKET}/${objectKey}`;
   const publicUrl = getPublicUrl(objectKey);
 
   if (args['dry-run'] === 'true') {
@@ -228,8 +266,8 @@ async function main() {
     method: 'PUT',
     url: uploadUrl,
     body,
-    accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
+    accessKeyId: resolvedEnv.R2_ACCESS_KEY,
+    secretAccessKey: resolvedEnv.R2_SECRET_KEY,
   });
 
   const response = await fetch(uploadUrl, {

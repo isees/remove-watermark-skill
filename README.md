@@ -167,17 +167,18 @@ You can upload the versioned zip directly to Cloudflare R2 from this repo.
 
 Required env values:
 
-- `CLOUDFLARE_R2_ACCOUNT_ID`
-- `CLOUDFLARE_R2_ACCESS_KEY_ID`
-- `CLOUDFLARE_R2_SECRET_ACCESS_KEY`
-- `CLOUDFLARE_R2_BUCKET`
+- `R2_ACCESS_KEY`
+- `R2_SECRET_KEY`
+- `R2_BUCKET`
+- `R2_ENDPOINT`
+  for example `https://<account-id>.r2.cloudflarestorage.com`
 
-Optional env values:
+Recommended env values:
 
-- `CLOUDFLARE_R2_KEY_PREFIX`
-  defaults to `skills`
-- `CLOUDFLARE_R2_PUBLIC_BASE_URL`
+- `R2_DOMAIN`
   for example `https://assets.airemovewatermark.net`
+- `R2_UPLOAD_PATH`
+  for example `skills`
 
 Default upload result for version `0.1.6`:
 
