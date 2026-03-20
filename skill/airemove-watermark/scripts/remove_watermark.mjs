@@ -36,14 +36,15 @@ function parseArgs(argv) {
 function printHelp() {
   console.log(`Usage:
   node scripts/remove_watermark.mjs credits [--api-key <key>] [--base-url <url>]
-  node scripts/remove_watermark.mjs remove --file <path> [--wait true] [--download-to <path>] [--output-dir <path>] [--api-key <key>] [--base-url <url>]
-  node scripts/remove_watermark.mjs remove --image-url <url> [--wait true] [--download-to <path>] [--output-dir <path>] [--api-key <key>] [--base-url <url>]
-  node scripts/remove_watermark.mjs task --task-id <id> [--download-to <path>] [--output-dir <path>] [--api-key <key>] [--base-url <url>]
+  node scripts/remove_watermark.mjs remove --file <path> [--wait true] [--download true] [--api-key <key>] [--base-url <url>]
+  node scripts/remove_watermark.mjs remove --image-url <url> [--wait true] [--download true] [--api-key <key>] [--base-url <url>]
+  node scripts/remove_watermark.mjs task --task-id <id> [--download true] [--api-key <key>] [--base-url <url>]
 
 Defaults:
   base URL defaults to ${DEFAULT_BASE_URL}
   remove waits for completion by default
-  completed jobs auto-download to ${DEFAULT_OUTPUT_DIR}
+  completed jobs are not downloaded unless --download true is set
+  downloaded files are saved to ${DEFAULT_OUTPUT_DIR}
 `);
 }
 
@@ -166,6 +167,23 @@ function getTaskOutputUrl(json) {
   );
 }
 
+function parseBooleanFlag(value, defaultValue = false) {
+  if (value === undefined || value === null || value === '') {
+    return defaultValue;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+  if (['true', '1', 'yes'].includes(normalized)) {
+    return true;
+  }
+
+  if (['false', '0', 'no'].includes(normalized)) {
+    return false;
+  }
+
+  return defaultValue;
+}
+
 function getTaskStatus(json) {
   return String(json?.data?.task?.status || json?.data?.status || '').trim();
 }
@@ -233,22 +251,47 @@ function getDefaultDownloadTarget({ json, sourceFilePath, outputDir }) {
   return path.join(outputDir, `${fileStem}-cleaned${ext}`);
 }
 
-async function maybeDownloadOutput(json, downloadTo, options = {}) {
+function getTrustedDownloadHosts(baseUrl) {
+  const hosts = new Set(['assets.airemovewatermark.net']);
+
+  try {
+    hosts.add(new URL(baseUrl).host);
+  } catch {
+    // ignore invalid base URL here; request path validation happens elsewhere
+  }
+
+  return hosts;
+}
+
+function assertTrustedOutputUrl(outputUrl, baseUrl) {
+  let parsed;
+
+  try {
+    parsed = new URL(outputUrl);
+  } catch {
+    throw new Error('The API returned an invalid output URL.');
+  }
+
+  if (parsed.protocol !== 'https:') {
+    throw new Error('The API returned a non-HTTPS output URL.');
+  }
+
+  if (!getTrustedDownloadHosts(baseUrl).has(parsed.host)) {
+    throw new Error(
+      `The API returned an untrusted output host: ${parsed.host}.`
+    );
+  }
+}
+
+async function maybeDownloadOutput(json, options = {}) {
   const status = getTaskStatus(json);
   const outputUrl = String(getTaskOutputUrl(json) || '').trim();
   const isCompleted = isCompletedResponse(json);
+  const shouldDownload = parseBooleanFlag(options.download, false);
 
-  if (!outputUrl || !isCompleted) {
+  if (!outputUrl || !isCompleted || !shouldDownload) {
     return null;
   }
-
-  const targetPath = String(downloadTo || '').trim()
-    ? String(downloadTo || '').trim()
-    : getDefaultDownloadTarget({
-        json,
-        sourceFilePath: options.sourceFilePath,
-        outputDir: options.outputDir || DEFAULT_OUTPUT_DIR,
-      });
 
   if (!outputUrl) {
     throw new Error(
@@ -256,6 +299,13 @@ async function maybeDownloadOutput(json, downloadTo, options = {}) {
     );
   }
 
+  assertTrustedOutputUrl(outputUrl, options.baseUrl || DEFAULT_BASE_URL);
+
+  const targetPath = getDefaultDownloadTarget({
+    json,
+    sourceFilePath: options.sourceFilePath,
+    outputDir: DEFAULT_OUTPUT_DIR,
+  });
   const response = await fetch(outputUrl);
   if (!response.ok) {
     throw new Error(`Failed to download output: ${response.status}`);
@@ -345,8 +395,9 @@ async function runTask(config, args) {
     }
   );
 
-  const resultFile = await maybeDownloadOutput(json, args['download-to'], {
-    outputDir: args['output-dir'],
+  const resultFile = await maybeDownloadOutput(json, {
+    download: args.download,
+    baseUrl: config.baseUrl,
   });
   console.log(
     JSON.stringify(
@@ -406,9 +457,10 @@ async function runRemove(config, args) {
     });
   }
 
-  const resultFile = await maybeDownloadOutput(json, args['download-to'], {
+  const resultFile = await maybeDownloadOutput(json, {
+    download: args.download,
     sourceFilePath: filePath,
-    outputDir: args['output-dir'],
+    baseUrl: config.baseUrl,
   });
   console.log(
     JSON.stringify(

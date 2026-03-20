@@ -1,6 +1,6 @@
 {
   "name": "@airemovewatermark/remove-watermark",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "private": true,
   "description": "Official AI Remove Watermark skill package for OpenClaw and ClawHub distribution.",
   "license": "MIT-0",

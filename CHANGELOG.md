@@ -3,6 +3,13 @@
 This changelog tracks the standalone skill project intended for website
 distribution, public GitHub sync, and future ClawHub publication.
 
+## 0.1.7
+
+- Simplified the published skill contract so `API_KEY` is the only required environment variable
+- Made local downloads explicit with `--download true` and removed arbitrary output path overrides
+- Restricted auto-saved files to the local artifacts directory and trusted HTTPS output hosts
+- Added a package-time safety check so `.env`, key, and certificate files cannot be included in the distributed zip
+
 ## 0.1.6
 
 - Optimized the CLI output for chat-style runtimes with top-level `status`, `result_file`, and `result_summary`

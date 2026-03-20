@@ -151,10 +151,12 @@ pnpm build
 
 This creates:
 
-- `dist/remove-watermark-skill-0.1.6.zip`
+- `dist/remove-watermark-skill-0.1.7.zip`
 
 The archive extracts to `airemove-watermark/`, which matches the current
-install directory and marketplace slug.
+install directory and marketplace slug. The build only packages the
+`skill/airemove-watermark/` directory and rejects `.env`, key, and certificate
+files if they appear in the published skill tree.
 
 ## Cloudflare R2 Upload
 
@@ -180,9 +182,9 @@ Recommended env values:
 - `R2_UPLOAD_PATH`
   for example `skills`
 
-Default upload result for version `0.1.6`:
+Default upload result for version `0.1.7`:
 
-- object key: `skills/remove-watermark-skill-0.1.6.zip`
+- object key: `skills/remove-watermark-skill-0.1.7.zip`
 
 Useful commands:
 
@@ -194,8 +196,8 @@ pnpm upload:r2
 You can also override the upload source or target key:
 
 ```bash
-node scripts/upload-r2.mjs --file dist/remove-watermark-skill-0.1.6.zip
-node scripts/upload-r2.mjs --key skills/remove-watermark-skill-0.1.6.zip
+node scripts/upload-r2.mjs --file dist/remove-watermark-skill-0.1.7.zip
+node scripts/upload-r2.mjs --key skills/remove-watermark-skill-0.1.7.zip
 node scripts/upload-r2.mjs --dry-run true
 ```
 
